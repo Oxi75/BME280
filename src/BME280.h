@@ -164,10 +164,12 @@ class BME280_Class {
  public:
   BME280_Class();
   ~BME280_Class();
-  bool begin();
-  bool begin(const uint32_t i2cSpeed);
-  bool begin(const uint8_t chipSelect);
-  bool begin(const uint8_t chipSelect, const uint8_t mosi, const uint8_t miso, const uint8_t sck);
+//bool begin();
+  bool begin_I2C(const uint8_t i2cAddress = 0x76, const uint32_t i2cSpeed = I2C_STANDARD_MODE); // New overload
+  bool begin_I2C(const uint32_t i2cSpeed);
+  bool begin_SPI(const uint8_t chipSelect);
+  bool begin_SPI(const uint8_t chipSelect, const uint8_t mosi, const uint8_t miso, const uint8_t sck);
+  
   uint8_t  mode(const uint8_t operatingMode = UINT8_MAX);
   bool     setOversampling(const uint8_t sensor, const uint8_t sampling);
   uint8_t  getOversampling(const uint8_t sensor, const bool actual = false);

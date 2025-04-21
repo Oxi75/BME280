@@ -8,7 +8,16 @@
 #include "BME280.h"
 BME280_Class::BME280_Class() {}   ///< Empty & unused class constructor
 BME280_Class::~BME280_Class() {}  ///< Empty & unused class destructor
+
+
+
+/*
 bool BME280_Class::begin() {
+  return begin(0x76, I2C_STANDARD_MODE);  // Use default address 0x76
+}
+*/
+
+bool BME280_Class::begin_I2C(const uint8_t i2cAddress, const uint32_t i2cSpeed) {
   /*!
    * @brief   Begin method to start I2C communications
    * @details It is overloaded to allow for 3 different connection types to be used - I2C, Hardware
@@ -16,37 +25,39 @@ bool BME280_Class::begin() {
    * scanned for the first BME280 (typically at 0x76 or 0x77 unless an I2C expander is used to remap
    * the address.
    * @return  returns "true" when the class initialized correctly
-   */
-  return begin(I2C_STANDARD_MODE);  // Initialize I2C with slow speed
-}  // of method begin()
-bool BME280_Class::begin(const uint32_t i2cSpeed) {
-  /*!
-   * @brief     Begin method to start I2C communications
-   * @details   It is overloaded to allow for 3 different connection types to be used - I2C,
-   * Hardware SPI and Software SPI. When called with no parameters the I2C mode is enabled and the
-   * I2C bus is scanned for the first BME280 (typically at 0x76 or 0x77 unless an I2C expander is
-   * used to remap the address.
-   * @param[in] i2cSpeed I2C speed rate in baud
-   * @return  returns "true" when the class initialized correctly
-   */
-  Wire.begin();                                            // Start I2C as master device
-  Wire.setClock(i2cSpeed);                                 // Set I2C bus speed
-  for (_I2CAddress = 0; _I2CAddress < 127; _I2CAddress++)  // loop all possible addresses
-  {
-    Wire.beginTransmission(_I2CAddress);  // Check current address for BME280
-    if (Wire.endTransmission() == 0)      // If no error we have a device
-    {
-      if (readByte(BME280_CHIPID_REG) == BME280_CHIPID)  // check for correct chip id
-      {
-        getCalibration();  // get the calibration values
-        return true;
-      }             // of if-then device is really a BME280
-    }               // of if-then we have found a device
-  }                 // of for-next each I2C address loop
-  _I2CAddress = 0;  // Set to 0 to denote no I2C found
+   */	  
+  Wire.begin();                // Start I2C as master device
+  Wire.setClock(i2cSpeed);     // Set I2C bus speed
+  _I2CAddress = i2cAddress;    // Store the provided I2C address
+  
+  Wire.beginTransmission(_I2CAddress);
+  if (Wire.endTransmission() == 0) {  // If no error we have a device
+    if (readByte(BME280_CHIPID_REG) == BME280_CHIPID) {  // check for correct chip id
+      getCalibration();  // get the calibration values
+      return true;
+    }
+  }
+  
+  _I2CAddress = 0;  // Reset address if device not found
   return false;
-}  // of method begin()
-bool BME280_Class::begin(const uint8_t chipSelect)  // Use hardware SPI for comms
+}
+
+
+
+bool BME280_Class::begin_I2C(const uint32_t i2cSpeed) {
+  Wire.begin();                // Start I2C as master device
+  Wire.setClock(i2cSpeed);     // Set I2C bus speed
+  
+  // Try default addresses
+  if (begin_I2C(0x76, i2cSpeed)) return true;  // Try default address 0x76 first
+  if (begin_I2C(0x77, i2cSpeed)) return true;  // Then try alternate address 0x77
+  
+  _I2CAddress = 0;  // Reset address if no device found
+  return false;
+}
+
+
+bool BME280_Class::begin_SPI(const uint8_t chipSelect)  // Use hardware SPI for comms
 {
   /*!
    * @brief     Begin method to start hardware SPI communications
@@ -68,7 +79,9 @@ bool BME280_Class::begin(const uint8_t chipSelect)  // Use hardware SPI for comm
   }                    // of if-then device is really a BME280
   return false;        // return failure if we get here
 }  // of method begin()
-bool BME280_Class::begin(const uint8_t chipSelect, const uint8_t mosi, const uint8_t miso,
+
+
+bool BME280_Class::begin_SPI(const uint8_t chipSelect, const uint8_t mosi, const uint8_t miso,
                          const uint8_t sck) {
   /*!
    * @brief     Begin method to start software SPI communications
@@ -98,6 +111,7 @@ bool BME280_Class::begin(const uint8_t chipSelect, const uint8_t mosi, const uin
   }  // of if-then device is really a BME280
   return false;
 }  // of method begin()
+
 void BME280_Class::getCalibration() {
   /*!
    * @brief     reads the calibration register data into local variables for use in converting
@@ -131,6 +145,7 @@ void BME280_Class::getCalibration() {
   _cal_dig_H5 = (readByte(BME280_H5_REG + 1) << 4) | (readByte(BME280_H5_REG) >> 4);
   _cal_dig_H6 = readByte(BME280_H6_REG);
 }  // of method getCalibration()
+
 uint8_t BME280_Class::readByte(const uint8_t addr) {
   /*!
    * @brief     interlude function to the getData() function. Reads 1 byte from the given address
@@ -378,9 +393,9 @@ void BME280_Class::reset() {
    */
   putData(BME280_SOFTRESET_REG, BME280_SOFTWARE_CODE);  // writing code here resets device
   if (_I2CAddress)
-    begin();  // Start device again if I2C
+    begin_I2C();  // Start device again if I2C
   else if (_sck)
-    begin(_cs, _mosi, _miso, _sck);  // Use software serial again
+    begin_SPI(_cs, _mosi, _miso, _sck);  // Use software serial again
   else
-    begin(_cs);  // otherwise it must be hardware SPI
+    begin_SPI(_cs);  // otherwise it must be hardware SPI
 }  // of method reset()
